@@ -1,15 +1,14 @@
 """
-Capture frames from a camera using openCV and publish on an MQTT topic.
+Capture frames from a camera using jetcam and publish on an MQTT topic.
 """
 import time
 import os
 
 from mqtt import get_mqtt_client
-from helpers import pil_image_to_byte_array, get_now_string, get_config
-from imutils.video import WebcamVideoStream
-from imutils import opencv2matplotlib
+from helpers import get_now_string, get_config
 
-from PIL import Image
+from jetcam.csi_camera import CSICamera
+from jetcam.utils import bgr8_to_jpeg
 
 CONFIG_FILE_PATH = os.getenv("MQTT_CAMERA_CONFIG", "./config/config.yml")
 CONFIG = get_config(CONFIG_FILE_PATH)
@@ -30,16 +29,14 @@ def main():
     client.loop_start()
 
     # Open camera
-    camera = WebcamVideoStream(src=VIDEO_SOURCE).start()
+    camera = CSICamera(width=224, height=224, capture_width=3280, capture_height=2464, capture_fps=1)
     time.sleep(2)  # Webcam light should come on if using one
 
     while True:
         frame = camera.read()
-        np_array_RGB = opencv2matplotlib(frame)  # Convert to RGB
+        np_array_RGB = bgr8_to_jpeg(frame)
 
-        image = Image.fromarray(np_array_RGB)  #  PIL image
-        byte_array = pil_image_to_byte_array(image)
-        client.publish(MQTT_TOPIC_CAMERA, byte_array, qos=MQTT_QOS)
+        client.publish(MQTT_TOPIC_CAMERA, np_array_RGB, qos=MQTT_QOS)
         now = get_now_string()
         print(f"published frame on topic: {MQTT_TOPIC_CAMERA} at {now}")
         time.sleep(1 / FPS)
